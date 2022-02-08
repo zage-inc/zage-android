@@ -1,0 +1,89 @@
+apply plugin: "signing"
+apply plugin: "maven-publish"
+
+
+def getReleaseRepositoryUrl() {
+    return "https://s01.oss.sonatype.org/service/local/staging/deploy/maven2/"
+}
+
+def getSnapshotRepositoryUrl() {
+    return "https://s01.oss.sonatype.org/content/repositories/snapshots/"
+}
+
+def getRepositoryUsername() {
+    return NEXUS_USERNAME
+}
+
+def getRepositoryPassword() {
+    return NEXUS_PASSWORD
+}
+
+
+task androidSourcesJar(type: Jar) {
+    from android.sourceSets.main.java.source
+}
+
+afterEvaluate { project ->
+    publishing {
+        publications {
+            release(MavenPublication) {
+                artifact androidSourcesJar
+                artifact bundleReleaseAar
+
+                groupId = "com.tryzage"
+                artifactId = project.artifactId
+                version = VERSION
+
+                pom {
+                    name = project.artifactName
+                    packaging = "aar"
+                    description = project.artifactDescription
+                    url = "https://github.com/zage-inc/zage-android"
+
+                    scm {
+                        connection = "scm:git@github.com:zage-inc/zage-android.git"
+                        developerConnection = "scm:git@github.com:zage-inc/zage-android.git"
+                        url = "https://github.com/zage-inc/zage-android"
+                    }
+
+                    licenses {
+                        license {
+                            name = "The Apache License, Version 2.0"
+                            url = "http://www.apache.org/licenses/LICENSE-2.0.txt"
+                            distribution = "repo"
+                        }
+                    }
+
+                    developers {
+                        developer {
+                            id = "zage"
+                            name = "Zage"
+                        }
+                    }
+                }
+            }
+        }
+        repositories {
+            maven {
+                url getReleaseRepositoryUrl()
+                credentials {
+                    username = getRepositoryUsername()
+                    password = getRepositoryPassword()
+                }
+            }
+        }
+
+        signing {
+            required { gradle.taskGraph.hasTask("publish") }
+            useGpgCmd()
+            sign publishing.publications.release
+        }
+        tasks.withType(Sign) {
+            onlyIf { project.hasProperty('signing.gnupg.keyName') }
+        }
+
+        artifacts {
+            archives androidSourcesJar
+        }
+    }
+}
