@@ -64,6 +64,16 @@ fun openPayment() {
 ```
 And that's it! With just the Zage object and one method, you can integrate Zage into your Android application. Here is an example with all of the pieces in one place:
 
+### Additional Features
+
+In order to help educate users about Zage as a checkout option, we also provide an informational modal that you can use to display information about what Zage is and how it works.
+You only need to call `zage.openModal()` in your application whenever you want your users to learn more and we'll handle the rest
+
+```kotlin
+fun bannerClicked() {
+  zage.openModal()
+}
+
 ### Full Implementation Example
 
 ```kotlin
