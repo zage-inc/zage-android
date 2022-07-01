@@ -26,6 +26,8 @@ class Zage constructor(
 ) {
     private var PROD_APP_URL = "https://production.zage.dev/checkout"
     private var SB_APP_URL = "https://sandbox.zage.dev/checkout"
+    private var PROD_INFO_URL = "https://info.zage.dev"
+    private var SB_INFO_URL = "https://info.staging.zage.dev"
 
     /**
      * Given a payment token, onComplete, and onExit handler, open the Zage payment flow
@@ -98,6 +100,78 @@ class Zage constructor(
                         // If the javascript fetch failed for some reason, close the webview and call on exit
                         closeWebview()
                         onExit()
+                    }
+                }
+            }
+
+            override fun onReceivedSslError(
+                view: WebView?,
+                handler: SslErrorHandler?,
+                error: SslError?
+            ) {
+                handler?.proceed();
+            }
+        }
+    }
+
+
+    fun openModal() {
+        var webView: WebView = WebView(context)
+
+        // Helper function to close the webview
+        fun closeWebview() {
+            context.runOnUiThread {
+                var group = webView.parent as ViewGroup
+                group.removeView(webView)
+            }
+        }
+
+        webView.settings.javaScriptEnabled = true
+
+        // Make the webview transparent
+        webView.setBackgroundColor(Color.TRANSPARENT)
+
+        // Route the request to sandbox or prod
+        var zageApp: String
+        if (publicKey.startsWith("sandbox_")) {
+            zageApp = SB_INFO_URL
+        } else {
+            zageApp = PROD_INFO_URL
+        }
+        webView.loadUrl(zageApp)
+
+        // This class acts as the bridge between the javascript running in the webview and the native Android code
+        class JSInterface() {
+            @JavascriptInterface
+            fun closeModal() {
+                closeWebview()
+            }
+        }
+        // Add the javascript interface to the weview
+        webView.addJavascriptInterface(JSInterface(), "Android")
+
+        context.addContentView(webView, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
+
+        webView.webViewClient = object : WebViewClient() {
+            override fun onPageStarted(view: WebView?, url: String?, favicon: Bitmap?) {
+                super.onPageFinished(view, url);
+
+                // Url to retrieve javascript to inject
+                val url = "https://api.zage.dev/v0/v0-android.js"
+                val executor = Executors.newSingleThreadExecutor()
+                val handler = Handler(Looper.getMainLooper())
+
+                executor.execute {
+                    try {
+                        var res = URL(url).readText()
+                        handler.post {
+                            // Inject obfuscated javascript into webView and call openPayment.
+                            webView.evaluateJavascript(res, null)
+                            webView.evaluateJavascript("openModal('$publicKey')", null)
+                        }
+                    } catch (e: FileNotFoundException) {
+                        // If the javascript fetch failed for some reason, close the webview and call on exit
+                        closeWebview()
                     }
                 }
             }
